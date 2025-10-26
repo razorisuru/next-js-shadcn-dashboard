@@ -38,6 +38,11 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeletingId, setIsDeletingId] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -67,6 +72,8 @@ export default function UsersPage() {
 
   const handleAddUser = async (e) => {
     e.preventDefault();
+    if (isAdding) return;
+    setIsAdding(true);
     try {
       const response = await fetch('/api/users', {
         method: 'POST',
@@ -86,11 +93,15 @@ export default function UsersPage() {
     } catch (error) {
       console.error('Error adding user:', error);
       toast.error('An error occurred');
+    } finally {
+      setIsAdding(false);
     }
   };
 
   const handleEditUser = async (e) => {
     e.preventDefault();
+    if (isUpdating) return;
+    setIsUpdating(true);
     try {
       const response = await fetch(`/api/users/${selectedUser.id}`, {
         method: 'PUT',
@@ -115,19 +126,29 @@ export default function UsersPage() {
     } catch (error) {
       console.error('Error updating user:', error);
       toast.error('An error occurred');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  const handleDeleteUser = async (userId) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+  const handleDeleteClick = (user) => {
+    setUserToDelete(user);
+    setIsDeleteDialogOpen(true);
+  };
 
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    if (isDeletingId) return;
+    setIsDeletingId(userToDelete.id);
     try {
-      const response = await fetch(`/api/users/${userId}`, {
+      const response = await fetch(`/api/users/${userToDelete.id}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         toast.success('User deleted successfully');
+        setIsDeleteDialogOpen(false);
+        setUserToDelete(null);
         fetchUsers();
       } else {
         const data = await response.json();
@@ -136,6 +157,8 @@ export default function UsersPage() {
     } catch (error) {
       console.error('Error deleting user:', error);
       toast.error('An error occurred');
+    } finally {
+      setIsDeletingId(null);
     }
   };
 
@@ -214,7 +237,7 @@ export default function UsersPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleDeleteUser(user.id)}
+                      onClick={() => handleDeleteClick(user)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -283,7 +306,16 @@ export default function UsersPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit">Add User</Button>
+              <Button type="submit" disabled={isAdding}>
+                {isAdding ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  'Add User'
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -336,9 +368,53 @@ export default function UsersPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit">Update User</Button>
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update User'
+                )}
+              </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete user</DialogTitle>
+            <DialogDescription>
+              {`This action cannot be undone. This will permanently delete ${userToDelete?.name ?? 'this user'} and remove their data from our servers.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={!!isDeletingId}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteUser}
+              disabled={!!isDeletingId}
+            >
+              {isDeletingId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </motion.div>
